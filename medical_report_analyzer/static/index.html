@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Medical Report Analyzer</title>
+  <meta name="description" content="AI-powered medical report analyzer — upload PDFs, ask questions, and get structured insights." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/static/style.css" />
+</head>
+<body>
+
+  <!-- Ambient background blobs -->
+  <div class="bg-blob blob-1"></div>
+  <div class="bg-blob blob-2"></div>
+  <div class="bg-blob blob-3"></div>
+
+  <header>
+    <div class="logo">
+      <span class="logo-icon">🩺</span>
+      <h1>Medical Report Analyzer</h1>
+    </div>
+    <p class="tagline">AI-powered insights from your lab reports</p>
+  </header>
+
+  <main>
+    <!-- ─── Upload Section ─── -->
+    <section class="card" id="upload-section">
+      <div class="card-header">
+        <span class="card-icon">📄</span>
+        <h2>Upload Report</h2>
+      </div>
+      <div class="upload-area" id="upload-area">
+        <input type="text" id="pdf-path" placeholder="Paste full PDF file path  (e.g. C:\Reports\blood_test.pdf)" />
+        <input type="text" id="source-id" placeholder="Source ID (optional — defaults to file path)" />
+        <button class="btn btn-primary" id="btn-upload">
+          <span class="btn-text">Index Report</span>
+          <span class="spinner hidden" id="upload-spinner"></span>
+        </button>
+      </div>
+      <div class="result-box hidden" id="upload-result"></div>
+    </section>
+
+    <!-- ─── Query Section ─── -->
+    <section class="card" id="query-section">
+      <div class="card-header">
+        <span class="card-icon">💬</span>
+        <h2>Ask a Question</h2>
+      </div>
+      <div class="chat-container" id="chat-container">
+        <div class="chat-empty" id="chat-empty">
+          <p>Ask anything about your medical report</p>
+          <div class="suggestions">
+            <button class="suggestion" data-q="What are the abnormal values in this report?">Abnormal values?</button>
+            <button class="suggestion" data-q="Summarize the key findings">Key findings</button>
+            <button class="suggestion" data-q="Is my hemoglobin level normal?">Hemoglobin normal?</button>
+          </div>
+        </div>
+        <div id="chat-messages"></div>
+      </div>
+      <div class="query-input-row">
+        <input type="text" id="query-input" placeholder="Type your question…" />
+        <button class="btn btn-primary" id="btn-query">
+          <span class="btn-text">Ask</span>
+          <span class="spinner hidden" id="query-spinner"></span>
+        </button>
+      </div>
+    </section>
+
+    <!-- ─── Analyze Section ─── -->
+    <section class="card" id="analyze-section">
+      <div class="card-header">
+        <span class="card-icon">🔬</span>
+        <h2>Full Analysis</h2>
+      </div>
+      <p class="card-desc">Extract all test results and flag abnormalities.</p>
+      <div class="analyze-controls">
+        <input type="text" id="analyze-source" placeholder="Source ID (from upload)" />
+        <button class="btn btn-accent" id="btn-analyze">
+          <span class="btn-text">Analyze Report</span>
+          <span class="spinner hidden" id="analyze-spinner"></span>
+        </button>
+      </div>
+      <div class="result-box hidden" id="analyze-result"></div>
+    </section>
+  </main>
+
+  <footer>
+    <p>⚠️ This tool is not a substitute for professional medical advice.</p>
+  </footer>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>
