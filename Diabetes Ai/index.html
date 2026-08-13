@@ -1,0 +1,522 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>DiabetesAI Agent</title>
+  <meta name="description" content="AI-powered diabetes dataset analysis and prediction agent." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg-deep:       #0d0b1e;
+      --bg-mid:        #13102b;
+      --bg-glass:      rgba(255,255,255,0.05);
+      --border:        rgba(255,255,255,0.10);
+      --accent1:       #667eea;
+      --accent2:       #a78bfa;
+      --accent3:       #764ba2;
+      --text-primary:  #e2e8f0;
+      --text-muted:    rgba(255,255,255,0.45);
+      --green-mono:    #a8edcf;
+      --shadow-glow:   rgba(102,126,234,0.25);
+    }
+
+    html, body {
+      height: 100%;
+      font-family: 'Inter', sans-serif;
+      background: var(--bg-deep);
+      color: var(--text-primary);
+      overflow: hidden;
+    }
+
+    /* ─── Layout ─────────────────────────────────────────────── */
+    .layout {
+      display: flex;
+      height: 100vh;
+    }
+
+    /* ─── Sidebar ────────────────────────────────────────────── */
+    .sidebar {
+      width: 260px;
+      flex-shrink: 0;
+      background: var(--bg-mid);
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      padding: 24px 16px;
+      gap: 16px;
+    }
+    .sidebar-logo {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding-bottom: 16px;
+      border-bottom: 1px solid var(--border);
+    }
+    .sidebar-logo .icon {
+      font-size: 1.8rem;
+    }
+    .sidebar-logo .name {
+      font-size: 1.1rem;
+      font-weight: 700;
+      background: linear-gradient(135deg, var(--accent1), var(--accent2));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    .sidebar-card {
+      background: var(--bg-glass);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 14px;
+      font-size: 0.82rem;
+      color: var(--text-primary);
+      line-height: 1.7;
+    }
+    .sidebar-card .card-title {
+      font-weight: 600;
+      font-size: 0.85rem;
+      margin-bottom: 8px;
+      color: var(--accent2);
+    }
+    .sidebar-card li {
+      list-style: none;
+      display: flex;
+      align-items: flex-start;
+      gap: 6px;
+    }
+    .sidebar-card li::before { content: "•"; color: var(--accent1); }
+    .badge {
+      display: inline-block;
+      background: rgba(102,126,234,0.2);
+      border: 1px solid rgba(102,126,234,0.35);
+      border-radius: 20px;
+      padding: 2px 10px;
+      font-size: 0.73rem;
+      color: var(--accent2);
+      margin: 3px 3px 0 0;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    .badge:hover { background: rgba(102,126,234,0.35); }
+    .sidebar-bottom { margin-top: auto; }
+    #clearBtn {
+      width: 100%;
+      padding: 10px;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      background: var(--bg-glass);
+      color: var(--text-primary);
+      font-size: 0.85rem;
+      font-family: 'Inter', sans-serif;
+      cursor: pointer;
+      transition: background 0.2s, border-color 0.2s;
+    }
+    #clearBtn:hover { background: rgba(255,80,80,0.12); border-color: rgba(255,80,80,0.3); }
+    .version {
+      text-align: center;
+      font-size: 0.72rem;
+      color: var(--text-muted);
+      margin-top: 12px;
+    }
+
+    /* ─── Main ───────────────────────────────────────────────── */
+    .main {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      background: radial-gradient(ellipse at 60% 0%, rgba(102,126,234,0.08) 0%, transparent 60%),
+                  radial-gradient(ellipse at 10% 80%, rgba(167,139,250,0.06) 0%, transparent 50%),
+                  var(--bg-deep);
+    }
+
+    /* ─── Header ─────────────────────────────────────────────── */
+    .header {
+      padding: 20px 28px 16px;
+      border-bottom: 1px solid var(--border);
+      background: rgba(13,11,30,0.7);
+      backdrop-filter: blur(10px);
+    }
+    .header h1 {
+      font-size: 1.5rem;
+      font-weight: 700;
+      background: linear-gradient(135deg, var(--accent1), var(--accent2));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    .header p {
+      color: var(--text-muted);
+      font-size: 0.85rem;
+      margin-top: 3px;
+    }
+    .status-dot {
+      display: inline-block;
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      background: #4ade80;
+      box-shadow: 0 0 6px #4ade80;
+      margin-right: 6px;
+      animation: pulse 2s infinite;
+    }
+    @keyframes pulse {
+      0%,100% { opacity: 1; }
+      50%      { opacity: 0.4; }
+    }
+
+    /* ─── Chat area ──────────────────────────────────────────── */
+    #chatBox {
+      flex: 1;
+      overflow-y: auto;
+      padding: 24px 28px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      scroll-behavior: smooth;
+    }
+    #chatBox::-webkit-scrollbar { width: 6px; }
+    #chatBox::-webkit-scrollbar-track { background: transparent; }
+    #chatBox::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.12); border-radius: 3px; }
+
+    /* welcome */
+    .welcome {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      flex: 1;
+      color: var(--text-muted);
+      text-align: center;
+      animation: fadeIn 0.6s ease;
+    }
+    .welcome .big-icon { font-size: 3.5rem; margin-bottom: 4px; }
+    .welcome h2 { font-size: 1.2rem; color: var(--text-primary); }
+    .welcome p  { font-size: 0.85rem; max-width: 340px; }
+
+    /* bubbles */
+    .bubble-row {
+      display: flex;
+      animation: fadeSlide 0.3s ease;
+    }
+    .bubble-row.user  { justify-content: flex-end; }
+    .bubble-row.agent { justify-content: flex-start; }
+
+    @keyframes fadeSlide {
+      from { opacity: 0; transform: translateY(10px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; } to { opacity: 1; }
+    }
+
+    .bubble {
+      max-width: 68%;
+      padding: 12px 16px;
+      border-radius: 18px;
+      font-size: 0.92rem;
+      line-height: 1.6;
+      word-break: break-word;
+    }
+    .bubble.user {
+      background: linear-gradient(135deg, var(--accent1), var(--accent3));
+      color: #fff;
+      border-bottom-right-radius: 4px;
+      box-shadow: 0 4px 20px var(--shadow-glow);
+    }
+    .bubble.agent {
+      background: var(--bg-glass);
+      border: 1px solid var(--border);
+      color: var(--text-primary);
+      border-bottom-left-radius: 4px;
+    }
+    .bubble .sender {
+      font-size: 0.72rem;
+      font-weight: 600;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      margin-bottom: 5px;
+      opacity: 0.7;
+    }
+    .report-box {
+      margin-top: 10px;
+      background: rgba(0,0,0,0.35);
+      border: 1px solid rgba(102,126,234,0.3);
+      border-radius: 10px;
+      padding: 14px 16px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.78rem;
+      color: var(--green-mono);
+      white-space: pre;
+      overflow-x: auto;
+    }
+
+    /* typing indicator */
+    .typing-row { display: flex; animation: fadeSlide 0.3s ease; }
+    .typing-bubble {
+      background: var(--bg-glass);
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      border-bottom-left-radius: 4px;
+      padding: 14px 18px;
+      display: flex; gap: 6px; align-items: center;
+    }
+    .typing-bubble span {
+      width: 7px; height: 7px;
+      background: var(--accent2);
+      border-radius: 50%;
+      animation: bounce 1.2s infinite;
+    }
+    .typing-bubble span:nth-child(2) { animation-delay: 0.2s; }
+    .typing-bubble span:nth-child(3) { animation-delay: 0.4s; }
+    @keyframes bounce {
+      0%,60%,100% { transform: translateY(0); opacity: 0.4; }
+      30%          { transform: translateY(-6px); opacity: 1; }
+    }
+
+    /* ─── Input bar ──────────────────────────────────────────── */
+    .input-bar {
+      padding: 16px 28px 20px;
+      border-top: 1px solid var(--border);
+      background: rgba(13,11,30,0.85);
+      backdrop-filter: blur(10px);
+    }
+    .input-wrap {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      background: var(--bg-glass);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 10px 14px;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+    .input-wrap:focus-within {
+      border-color: var(--accent1);
+      box-shadow: 0 0 0 3px rgba(102,126,234,0.15);
+    }
+    #msgInput {
+      flex: 1;
+      background: transparent;
+      border: none;
+      outline: none;
+      font-family: 'Inter', sans-serif;
+      font-size: 0.92rem;
+      color: var(--text-primary);
+      resize: none;
+      max-height: 120px;
+      line-height: 1.5;
+    }
+    #msgInput::placeholder { color: var(--text-muted); }
+    #sendBtn {
+      width: 40px; height: 40px;
+      border-radius: 10px;
+      border: none;
+      background: linear-gradient(135deg, var(--accent1), var(--accent3));
+      color: #fff;
+      font-size: 1rem;
+      cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+      transition: opacity 0.2s, transform 0.15s, box-shadow 0.2s;
+      box-shadow: 0 4px 14px var(--shadow-glow);
+    }
+    #sendBtn:hover  { opacity: 0.9; transform: scale(1.05); }
+    #sendBtn:active { transform: scale(0.96); }
+    #sendBtn:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+    .hint {
+      font-size: 0.72rem;
+      color: var(--text-muted);
+      margin-top: 8px;
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+<div class="layout">
+
+  <!-- ── Sidebar ─────────────────────────────────────────── -->
+  <aside class="sidebar">
+    <div class="sidebar-logo">
+      <span class="icon">🩺</span>
+      <span class="name">DiabetesAI</span>
+    </div>
+
+    <div class="sidebar-card">
+      <div class="card-title">🤖 Powered by</div>
+      <ul>
+        <li>Gemini AI (LangChain)</li>
+        <li>Logistic Regression</li>
+        <li>PIMA Diabetes Dataset</li>
+      </ul>
+    </div>
+
+    <div class="sidebar-card">
+      <div class="card-title">💬 Try asking</div>
+      <span class="badge" onclick="fillInput('Give me the report')">Give me the report</span>
+      <span class="badge" onclick="fillInput('Add 12 and 88')">Add 12 and 88</span>
+      <span class="badge" onclick="fillInput('What is the weather in Delhi?')">Weather in Delhi</span>
+      <span class="badge" onclick="fillInput('Multiply 7 and 9')">Multiply 7 × 9</span>
+    </div>
+
+    <div class="sidebar-bottom">
+      <button id="clearBtn" onclick="clearChat()">🗑️ Clear Chat</button>
+      <div class="version">DiabetesAI Agent v1.0</div>
+    </div>
+  </aside>
+
+  <!-- ── Main ────────────────────────────────────────────── -->
+  <div class="main">
+
+    <!-- Header -->
+    <div class="header">
+      <h1>🩺 DiabetesAI Agent</h1>
+      <p><span class="status-dot"></span>Ask me to analyze the diabetes dataset, run predictions, or do calculations.</p>
+    </div>
+
+    <!-- Chat -->
+    <div id="chatBox">
+      <div class="welcome" id="welcome">
+        <div class="big-icon">🩺</div>
+        <h2>Welcome to DiabetesAI</h2>
+        <p>Ask me to run the diabetes model, get predictions, add numbers, or check the weather.</p>
+      </div>
+    </div>
+
+    <!-- Input -->
+    <div class="input-bar">
+      <div class="input-wrap">
+        <textarea id="msgInput" rows="1" placeholder="Ask me anything about the diabetes data…"></textarea>
+        <button id="sendBtn" onclick="sendMessage()" title="Send (Enter)">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="22" y1="2" x2="11" y2="13"></line>
+            <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+          </svg>
+        </button>
+      </div>
+      <div class="hint">Press <kbd style="background:rgba(255,255,255,0.1);padding:1px 5px;border-radius:4px;font-size:0.72rem;">Enter</kbd> to send &nbsp;·&nbsp; <kbd style="background:rgba(255,255,255,0.1);padding:1px 5px;border-radius:4px;font-size:0.72rem;">Shift+Enter</kbd> for new line</div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+  const API = "http://localhost:8000/chat";
+  const chatBox  = document.getElementById("chatBox");
+  const input    = document.getElementById("msgInput");
+  const sendBtn  = document.getElementById("sendBtn");
+  const welcome  = document.getElementById("welcome");
+
+  /* ── auto-resize textarea ── */
+  input.addEventListener("input", () => {
+    input.style.height = "auto";
+    input.style.height = Math.min(input.scrollHeight, 120) + "px";
+  });
+
+  /* ── Enter to send ── */
+  input.addEventListener("keydown", e => {
+    if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMessage(); }
+  });
+
+  /* ── fill from sidebar badge ── */
+  function fillInput(text) {
+    input.value = text;
+    input.focus();
+    input.dispatchEvent(new Event("input"));
+  }
+
+  /* ── clear chat ── */
+  function clearChat() {
+    chatBox.innerHTML = "";
+    chatBox.appendChild(welcome);
+    welcome.style.display = "flex";
+  }
+
+  /* ── render a bubble ── */
+  function addBubble(role, text) {
+    welcome.style.display = "none";
+    const row = document.createElement("div");
+    row.className = `bubble-row ${role}`;
+
+    const bub = document.createElement("div");
+    bub.className = `bubble ${role}`;
+
+    const sender = document.createElement("div");
+    sender.className = "sender";
+    sender.textContent = role === "user" ? "You" : "DiabetesAI";
+
+    bub.appendChild(sender);
+
+    const isReport = text.includes("Classification Report") || text.includes("precision") || text.includes("recall");
+    if (role === "agent" && isReport) {
+      const parts = text.split(/\n\n(.+)/s);
+      const intro = document.createElement("div");
+      intro.textContent = parts[0];
+      bub.appendChild(intro);
+
+      const box = document.createElement("div");
+      box.className = "report-box";
+      box.textContent = parts.slice(1).join("\n\n").trim();
+      bub.appendChild(box);
+    } else {
+      const content = document.createElement("div");
+      content.textContent = text;
+      bub.appendChild(content);
+    }
+
+    row.appendChild(bub);
+    chatBox.appendChild(row);
+    chatBox.scrollTop = chatBox.scrollHeight;
+  }
+
+  /* ── typing indicator ── */
+  function showTyping() {
+    const row = document.createElement("div");
+    row.className = "typing-row";
+    row.id = "typingRow";
+    row.innerHTML = `<div class="typing-bubble"><span></span><span></span><span></span></div>`;
+    chatBox.appendChild(row);
+    chatBox.scrollTop = chatBox.scrollHeight;
+  }
+  function hideTyping() {
+    const t = document.getElementById("typingRow");
+    if (t) t.remove();
+  }
+
+  /* ── main send ── */
+  async function sendMessage() {
+    const msg = input.value.trim();
+    if (!msg) return;
+
+    addBubble("user", msg);
+    input.value = "";
+    input.style.height = "auto";
+    sendBtn.disabled = true;
+    showTyping();
+
+    try {
+      const res = await fetch(API, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message: msg })
+      });
+      const data = await res.json();
+      hideTyping();
+      if (res.ok) {
+        addBubble("agent", data.content);
+      } else {
+        addBubble("agent", "⚠️ Error: " + (data.detail || "Unknown error"));
+      }
+    } catch (err) {
+      hideTyping();
+      addBubble("agent", "⚠️ Could not reach the server. Make sure the FastAPI backend is running on port 8000.");
+    }
+
+    sendBtn.disabled = false;
+    input.focus();
+  }
+</script>
+</body>
+</html>

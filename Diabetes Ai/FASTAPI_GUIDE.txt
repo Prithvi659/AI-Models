@@ -1,0 +1,528 @@
+# FastAPI + HTML — Complete Beginner's Guide
+# Written for the DiabetesAI project
+# After reading this you can build any FastAPI app by yourself.
+
+================================================================================
+PART 1 — app.py (The Backend / Server)
+================================================================================
+
+Think of the backend as a WAITER in a restaurant.
+- The client (browser/HTML) is the CUSTOMER who orders food.
+- The backend receives orders, talks to the kitchen (AI agent), and brings back food (response).
+
+--------------------------------------------------------------------------------
+SECTION 1 — Imports (the tools you bring to work)
+--------------------------------------------------------------------------------
+
+from pathlib import Path
+
+    Path is Python's built-in way to handle file and folder paths.
+    Instead of typing "C:/prithvi/ai/langchain/Diabetes Ai/index.html"
+    manually, Path does it automatically and always works on every OS.
+
+    Example:
+        Path(__file__)          → full path of app.py itself
+        Path(__file__).parent   → folder that contains app.py
+        Path(__file__).parent / "index.html"  → index.html in the same folder
+
+----
+
+from fastapi import FastAPI, HTTPException
+
+    FastAPI  → the main framework. It creates your web server.
+    HTTPException → lets you send error responses with a custom message and
+                    status code (like 400 Bad Request, 500 Server Error).
+
+----
+
+from fastapi.middleware.cors import CORSMiddleware
+
+    CORS = Cross-Origin Resource Sharing.
+
+    Problem it solves:
+        Your HTML lives at http://127.0.0.1:8000
+        Your API is also at http://127.0.0.1:8000/chat
+        If they were on DIFFERENT ports/domains, the browser would BLOCK the
+        request for security reasons. CORS middleware tells the browser
+        "it's okay, allow requests from anywhere."
+
+    In simple terms: without this, your HTML page cannot talk to your API.
+
+----
+
+from fastapi.responses import FileResponse
+
+    Normally FastAPI returns JSON data.
+    FileResponse lets you return an actual FILE (like an HTML file) instead.
+    When a browser visits /index.html, FastAPI sends the HTML file as a response.
+
+----
+
+from fastapi.staticfiles import StaticFiles
+
+    This lets you serve a whole FOLDER of files (images, CSS, JS).
+    Think of it as pointing FastAPI to a folder and saying
+    "serve everything inside this folder as public files."
+    We mounted it at /static so you could access files like:
+    http://127.0.0.1:8000/static/index.html
+    (we don't use /static much here since we serve index.html directly)
+
+----
+
+from pydantic import BaseModel
+
+    Pydantic is a data validation library. BaseModel is its main class.
+    When a user sends data to your API (like a JSON message), Pydantic
+    automatically checks that the data has the right shape and types.
+
+    Example:
+        User sends: { "message": "give me a report" }  ✅ OK
+        User sends: { }                                 ❌ Error, message is missing
+
+    You just define a class that inherits BaseModel and FastAPI does the
+    validation for you automatically.
+
+----
+
+from contextlib import asynccontextmanager
+
+    This is Python's built-in tool for "context managers" (things that have
+    a setup and teardown step). The @asynccontextmanager decorator lets you
+    write an async function that does something before the app starts
+    and something after the app stops.
+
+    We use this to load the AI agent ONCE when the server starts, not on
+    every single request (which would be very slow).
+
+----
+
+from ai_agent import Ai
+
+    Simply imports the Ai class from our own ai_agent.py file.
+
+--------------------------------------------------------------------------------
+SECTION 2 — Lifespan (startup and shutdown logic)
+--------------------------------------------------------------------------------
+
+agent: Ai = None
+
+    Declares a global variable called "agent" that will hold our AI object.
+    It starts as None (empty) and gets filled when the server starts.
+
+----
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    global agent
+    print("[INFO] Loading AI Agent...")
+    agent = Ai()                   ← this runs ONCE when server starts
+    print("[INFO] AI Agent ready.")
+    yield                          ← the server runs here (handles requests)
+    print("[INFO] Shutting down.") ← this runs when server stops
+
+    WHY do this? Because creating the AI agent (loading the model, connecting
+    to Gemini, etc.) takes several seconds. If we did it inside the /chat
+    endpoint, every single request would wait several seconds just to load
+    the model. Instead we load it ONCE at startup and reuse it forever.
+
+    The "yield" keyword is the pause point. Everything before yield = startup.
+    Everything after yield = cleanup when the server shuts down.
+
+--------------------------------------------------------------------------------
+SECTION 3 — Creating the App
+--------------------------------------------------------------------------------
+
+app = FastAPI(
+    title="DiabetesAI Agent",
+    description="...",
+    version="1.0.0",
+    lifespan=lifespan,       ← connects our startup/shutdown logic
+)
+
+    This creates the actual FastAPI application.
+    title, description, version → appear on the automatic docs page at /docs
+    lifespan → tells FastAPI to run our lifespan function on start/stop
+
+--------------------------------------------------------------------------------
+SECTION 4 — CORS Middleware
+--------------------------------------------------------------------------------
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],    ← allow ALL websites/origins to call our API
+    allow_methods=["*"],    ← allow ALL HTTP methods (GET, POST, etc.)
+    allow_headers=["*"],    ← allow ALL headers in requests
+)
+
+    Middleware = code that runs on EVERY request before it reaches your route.
+    add_middleware() attaches it to the app.
+    allow_origins=["*"] means any website can call your API.
+    In production you'd restrict this to your own domain for security.
+
+--------------------------------------------------------------------------------
+SECTION 5 — Schemas (data shapes using Pydantic)
+--------------------------------------------------------------------------------
+
+class ChatRequest(BaseModel):
+    message: str
+
+    This defines what the client MUST send to /chat.
+    message: str → there must be a field called "message" and it must be a string.
+
+    FastAPI will automatically return a 422 error if the client sends wrong data.
+
+class ChatResponse(BaseModel):
+    role: str = "agent"   ← default value, don't need to send it
+    content: str
+
+    This defines what the server SENDS BACK.
+    Any response from /chat will always have a "role" and "content" field.
+
+--------------------------------------------------------------------------------
+SECTION 6 — Mounting Static Files
+--------------------------------------------------------------------------------
+
+app.mount("/static", StaticFiles(directory=BASE_DIR), name="static")
+
+    Makes the Diabetes Ai folder accessible at /static/...
+    For example:  http://127.0.0.1:8000/static/diabetes1.csv
+    It must be added BEFORE the route definitions.
+
+--------------------------------------------------------------------------------
+SECTION 7 — Routes
+--------------------------------------------------------------------------------
+
+@app.get("/", include_in_schema=False)
+@app.get("/index.html", include_in_schema=False)
+def serve_ui():
+    return FileResponse(BASE_DIR / "index.html")
+
+    @app.get("/")         → runs this function when browser visits http://127.0.0.1:8000/
+    @app.get("/index.html") → also runs for /index.html
+    include_in_schema=False → hides it from the /docs page (it's not a JSON API)
+    FileResponse(...)     → sends the HTML file to the browser
+
+----
+
+@app.get("/api/health")
+def health():
+    return {"status": "ok", "message": "DiabetesAI Agent is running"}
+
+    A simple route to check if the server is alive.
+    Returns JSON. You can visit http://127.0.0.1:8000/api/health to test it.
+
+----
+
+@app.post("/chat", response_model=ChatResponse)
+def chat(request: ChatRequest):
+
+    @app.post         → only responds to POST requests (sending data, not just fetching)
+    "/chat"           → the URL path
+    response_model=ChatResponse → FastAPI will format the response using this schema
+    request: ChatRequest → FastAPI reads the JSON body and validates it as ChatRequest
+
+    if not request.message.strip():
+        raise HTTPException(status_code=400, detail="Message cannot be empty.")
+
+        strip() removes spaces. If the message is blank, raise a 400 error.
+        HTTPException(status_code=400) → sends {"detail": "..."} with HTTP 400 status.
+
+    try:
+        response = agent.invoke(request.message)
+        return ChatResponse(content=response)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Agent error: {str(e)}")
+
+        try/except → if anything goes wrong, catch the error and return 500.
+        agent.invoke() → calls our AI agent with the user's message.
+        return ChatResponse(content=response) → sends back the AI's answer.
+
+================================================================================
+PART 2 — index.html (The Frontend / What the user sees)
+================================================================================
+
+An HTML file has 3 parts:
+    <head>   → settings, title, fonts, CSS styles (not visible on screen)
+    <body>   → the visible page content
+    <script> → JavaScript that makes the page interactive
+
+================================================================================
+SECTION 8 — The <head> Section
+================================================================================
+
+<meta charset="UTF-8" />
+    Tells the browser to use UTF-8 encoding (supports all languages and emojis).
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    Makes the page mobile-friendly. Without this, phones would zoom out.
+
+<link href="https://fonts.googleapis.com/css2?family=Inter..." />
+    Loads a custom font (Inter) from Google Fonts over the internet.
+    Without the internet, it falls back to a default browser font.
+
+================================================================================
+SECTION 9 — CSS Variables (:root)
+================================================================================
+
+:root {
+    --bg-deep: #0d0b1e;
+    --accent1: #667eea;
+    ...
+}
+
+    :root means "the entire page". Variables starting with -- are CSS custom
+    properties / design tokens.
+
+    WHY? Instead of typing #667eea everywhere, you write var(--accent1).
+    If you later want to change the color, you change it in ONE place.
+
+    These define the entire color palette for the app.
+
+================================================================================
+SECTION 10 — Key CSS Concepts Used
+================================================================================
+
+display: flex;
+    Flexbox layout. Makes elements line up side by side (or top-bottom).
+    flex-direction: row → side by side
+    flex-direction: column → stacked vertically
+
+----
+
+position: fixed / relative / absolute
+    fixed   → stays in place even when you scroll (like a fixed header)
+    relative → positioned relative to itself
+    absolute → positioned relative to its parent
+
+----
+
+backdrop-filter: blur(10px);
+    Creates the "frosted glass" effect. Blurs whatever is behind the element.
+
+----
+
+@keyframes and animation:
+    Creates smooth animations.
+
+    @keyframes bounce {
+        0%   { transform: translateY(0); }
+        50%  { transform: translateY(-6px); }
+        100% { transform: translateY(0); }
+    }
+
+    This defines a "bounce" animation that moves up and down.
+    You apply it with:  animation: bounce 1.2s infinite;
+
+----
+
+transition:
+    Smooth change when a CSS property changes (like on hover).
+    transition: background 0.2s  → background fades over 0.2 seconds instead
+    of switching instantly.
+
+================================================================================
+SECTION 11 — HTML Structure of the Page
+================================================================================
+
+<div class="layout">
+    This is the outermost container. It uses flexbox with two children:
+    1. <aside class="sidebar"> — the left panel
+    2. <div class="main">     — the right chat area
+
+<aside class="sidebar">
+    Contains:
+    - Logo (icon + name)
+    - "Powered by" card
+    - Quick-prompt badges
+    - Clear Chat button
+    - Version label
+
+<div class="main">
+    Contains:
+    - <div class="header">  → top bar with title and status dot
+    - <div id="chatBox">    → scrollable area where messages appear
+    - <div class="input-bar"> → the text input + send button at the bottom
+
+================================================================================
+SECTION 12 — JavaScript (the brain of the frontend)
+================================================================================
+
+const API = "http://localhost:8000/chat";
+
+    Stores the API URL. We reference this variable everywhere.
+    If you change the URL, you only change it here.
+
+----
+
+const chatBox = document.getElementById("chatBox");
+
+    document.getElementById() finds an HTML element by its id attribute.
+    Now "chatBox" in JS refers to the <div id="chatBox"> in HTML.
+
+----
+
+input.addEventListener("input", () => { ... });
+
+    Runs a function every time the user types in the textarea.
+    We use it to auto-resize the textarea height as you type.
+
+----
+
+input.addEventListener("keydown", e => {
+    if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMessage(); }
+});
+
+    Listens for key presses. When Enter is pressed WITHOUT Shift, it:
+    1. Prevents the default (which would add a newline)
+    2. Calls sendMessage() instead
+
+----
+
+async function sendMessage() { ... }
+
+    async → this function can use await (wait for something to finish).
+    Without async/await, the page would freeze while waiting for the API.
+
+    Inside it:
+    1. Reads the input text
+    2. Shows the user bubble on screen
+    3. Clears the input
+    4. Disables the send button (so user can't double-send)
+    5. Shows the typing dots animation
+    6. Calls the FastAPI /chat endpoint
+    7. Hides the typing dots
+    8. Shows the agent response bubble
+
+----
+
+const res = await fetch(API, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ message: msg })
+});
+
+    fetch() → browser's built-in tool to make HTTP requests
+    await   → wait until fetch is done before continuing
+    method: "POST" → we're sending data, not just reading
+    headers → tells the server we're sending JSON
+    body    → the actual data, converted from JS object to JSON string
+
+    JSON.stringify({ message: msg })  →  turns  { message: "hi" }  into  '{"message":"hi"}'
+
+----
+
+const data = await res.json();
+
+    res.json() reads the response body and parses it as JSON.
+    Now "data" is a JS object like { role: "agent", content: "Here is the report..." }
+
+----
+
+function addBubble(role, text) { ... }
+
+    Creates a new HTML element (a "bubble") and adds it to the chatBox.
+    document.createElement("div") → creates a new <div>
+    bub.className = "bubble user"  → adds CSS classes to style it
+    chatBox.appendChild(row)       → adds it to the visible page
+    chatBox.scrollTop = chatBox.scrollHeight → auto-scrolls to bottom
+
+----
+
+if (text.includes("Classification Report")) { ... }
+
+    Checks if the response contains the classification report text.
+    If yes, renders the report in a monospace green box instead of a normal bubble.
+
+================================================================================
+PART 3 — HOW TO BUILD A NEW FASTAPI APP FROM SCRATCH
+================================================================================
+
+Step 1: Install FastAPI
+    pip install fastapi uvicorn
+
+Step 2: Create main.py
+    from fastapi import FastAPI
+    app = FastAPI()
+
+    @app.get("/hello")
+    def hello():
+        return {"message": "Hello World"}
+
+Step 3: Run it
+    uvicorn main:app --reload
+
+Step 4: Visit http://127.0.0.1:8000/hello
+    You'll see: {"message": "Hello World"}
+
+Step 5: Visit http://127.0.0.1:8000/docs
+    Free auto-generated API documentation. Test all your endpoints here.
+
+----
+
+TEMPLATE — Full FastAPI app:
+
+from pathlib import Path
+from fastapi import FastAPI, HTTPException
+from fastapi.responses import FileResponse
+from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
+from contextlib import asynccontextmanager
+
+BASE_DIR = Path(__file__).parent
+some_resource = None
+
+@asynccontextmanager
+async def lifespan(app):
+    global some_resource
+    some_resource = "loaded"   # load model / db connection here
+    yield
+    some_resource = None       # cleanup here
+
+app = FastAPI(title="My App", lifespan=lifespan)
+app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
+
+class InputModel(BaseModel):
+    text: str
+
+class OutputModel(BaseModel):
+    result: str
+
+@app.get("/")
+def serve_frontend():
+    return FileResponse(BASE_DIR / "index.html")
+
+@app.post("/process", response_model=OutputModel)
+def process(data: InputModel):
+    if not data.text.strip():
+        raise HTTPException(status_code=400, detail="Input is empty")
+    return OutputModel(result=f"You said: {data.text}")
+
+----
+
+TEMPLATE — Fetch call from HTML/JS:
+
+async function callAPI(userText) {
+    const res = await fetch("http://127.0.0.1:8000/process", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text: userText })
+    });
+    const data = await res.json();
+    console.log(data.result);
+}
+
+================================================================================
+SUMMARY — What each file does in DiabetesAI
+================================================================================
+
+File            | Role
+----------------|--------------------------------------------------------------
+app.py          | The server. Loads AI on startup, listens for /chat requests,
+                | returns AI responses, serves index.html
+ml_model.py     | Runs the Logistic Regression model on the diabetes CSV
+ai_agent.py     | The LangChain AI agent that decides which tool to use
+index.html      | The UI. Pure HTML/CSS/JS. Sends fetch() requests to /chat
+diabetes1.csv   | The dataset used for training the ML model
+.env            | Stores secret keys (like the Gemini API key)
+
+================================================================================
