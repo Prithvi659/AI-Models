@@ -13,13 +13,12 @@ from custom_types import IngestRequest, QueryRequest
 
 load_dotenv()
 
-# ── Gemini LLM client ────────────────────────────────────────────────
+
 gemini = genai.Client()
 
-# ── FastAPI app ──────────────────────────────────────────────────────
+
 app = FastAPI(title="PDF RAG Analyzer")
 
-# Allow the frontend (port 3000) to call the API
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -27,7 +26,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# ── Helper functions ─────────────────────────────────────────────────
+
 def run_ingest(pdf_path: str, source_id: str) -> dict:
     """Load PDF → embed chunks → store in Qdrant."""
     chunks  = load_and_chunk_pdf(pdf_path)
@@ -52,7 +51,7 @@ def run_query(question: str, top_k: int) -> dict:
     answer = gemini.models.generate_content(model="gemini-3.0-flash", contents=prompt).text.strip()
     return {"answer": answer, "sources": found["sources"], "num_contexts": len(found["contexts"])}
 
-# ── Direct REST endpoints (used by the frontend) ─────────────────────
+
 @app.post("/ingest")
 async def ingest(req: IngestRequest):
     source = req.source_id or req.pdf_path
@@ -62,7 +61,6 @@ async def ingest(req: IngestRequest):
 async def query(req: QueryRequest):
     return run_query(req.question, req.top_k)
 
-# ── Inngest functions (optional background processing) ───────────────
 inngest_client = inngest.Inngest(
     app_id="pdf_rag",
     is_production=False,
