@@ -9,7 +9,7 @@ from ai_agent import Ai
 
 BASE_DIR = Path(__file__).parent
 
-# ── Lifespan (replaces @app.on_event) ────────────────────────────────────────
+
 agent: Ai = None
 
 @asynccontextmanager
@@ -21,7 +21,7 @@ async def lifespan(app: FastAPI):
     yield
     print("[INFO] Shutting down.")
 
-# ── App ───────────────────────────────────────────────────────────────────────
+
 app = FastAPI(
     title="DiabetesAI Agent",
     description="Ask the AI agent to analyze the diabetes dataset, run predictions, or do calculations.",
@@ -36,7 +36,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# ── Schemas ───────────────────────────────────────────────────────────────────
+
 class ChatRequest(BaseModel):
     message: str
 
@@ -44,10 +44,10 @@ class ChatResponse(BaseModel):
     role: str = "agent"
     content: str
 
-# ── Static files & frontend ──────────────────────────────────────────────────
+
 app.mount("/static", StaticFiles(directory=BASE_DIR), name="static")
 
-# ── Routes ────────────────────────────────────────────────────────────────────
+
 @app.get("/", tags=["UI"], include_in_schema=False)
 @app.get("/index.html", tags=["UI"], include_in_schema=False)
 def serve_ui():
